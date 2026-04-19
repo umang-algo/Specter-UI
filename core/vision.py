@@ -11,7 +11,7 @@ async def capture_screenshot(url: str, output_path: Path):
         # Use a premium device descriptor (large desktop)
         context = await browser.new_context(
             viewport={'width': 1440, 'height': 900},
-            device_scale_factor=2 # Retina quality
+            device_scale_factor=1 # Standard resolution for stability
         )
         page = await context.new_page()
         

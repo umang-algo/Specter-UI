@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-run.py — Specter UI: Autonomous Visual Auditor & Refactor Swarm
+run.py — Specter UI: Autonomous Visual Auditor & Refactor Swarm (v4.5 Config)
 """
 import os
 import sys
@@ -29,6 +29,10 @@ console = Console()
 load_dotenv()
 
 WORKSPACE = Path(__file__).parent / "workspace"
+
+# --- Models ---
+AUDIT_MODEL = "claude-sonnet-4-5-20250929" # The high-end Vision Brain found in path
+SWARM_MODEL = "claude-haiku-4-5-20251001"  # The ultra-fast Hand Brain found in path
 
 def get_repo_name(repo_url: str) -> str:
     url = repo_url.rstrip("/")
@@ -71,10 +75,10 @@ def update_state(state_file: Path, **kwargs):
 
 def perform_visual_audit(url: str, snapshot_path: Path, state_file: Path):
     """
-    Uses Claude 3.5 Sonnet to 'look' at the snapshot and provide a UX critique.
+    Uses Claude 4.5 Vision to 'look' at the snapshot and provide a UX critique.
     """
-    console.print(f"\n[bold magenta]👁️  Specter is auditing visuals for {url}...[/bold magenta]")
-    update_state(state_file, status="visual_auditing", log=[{"time": datetime.now().strftime("%H:%M:%S"), "agent": "Specter-Vision", "msg": f"Performing visual audit on {url}"}])
+    console.print(f"\n[bold magenta]👁️  Specter is auditing visuals with 4.5 Brain...[/bold magenta]")
+    update_state(state_file, status="visual_auditing", log=[{"time": datetime.now().strftime("%H:%M:%S"), "agent": "Specter-Vision", "msg": f"Performing 4.5 vision audit on {url}"}])
     
     # Capture snapshot
     vision.sync_capture_screenshot(url, snapshot_path)
@@ -97,7 +101,7 @@ def perform_visual_audit(url: str, snapshot_path: Path, state_file: Path):
 
     try:
         message = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model=AUDIT_MODEL,
             max_tokens=1024,
             messages=[
                 {
@@ -121,12 +125,12 @@ def perform_visual_audit(url: str, snapshot_path: Path, state_file: Path):
         )
         
         critique = message.content[0].text
-        console.print(f"\n[bold cyan]💎 Specter Audit Result:[/bold cyan]\n{critique}")
-        update_state(state_file, critique=critique, log=[{"time": datetime.now().strftime("%H:%M:%S"), "agent": "Specter-Vision", "msg": "Audit complete: Identified premium polish opportunities"}])
+        console.print(f"\n[bold cyan]💎 Specter Audit Result (4.5):[/bold cyan]\n{critique}")
+        update_state(state_file, critique=critique, log=[{"time": datetime.now().strftime("%H:%M:%S"), "agent": "Specter-Vision", "msg": "Audit complete: Identified 4.5 premium opportunities"}])
         return critique
     except Exception as e:
-        console.print(f"[bold red]❌ Vision Audit Failed: {e}[/bold red]")
-        return "Audit failed. Proceeding with standard coding task."
+        console.print(f"[bold red]❌ Vision Audit Failed (4.5): {e}[/bold red]")
+        return f"Audit failed with 4.5 brain: {e}. Proceeding with standard coding task."
 
 def parse_claude_stream(process, state_file: Path):
     logs = []
@@ -165,13 +169,13 @@ def parse_claude_stream(process, state_file: Path):
 @click.option("--reviewer", "-R", help="GitHub username to assign reviewer")
 def main(repo, task, url, reviewer):
     console.print(Panel.fit(
-        "[bold cyan]👁️ SPECTER UI — Visual Auditor Swarm[/bold cyan]\n"
-        "[dim]Enter details below. Specter will 'see' the app and fix it.[/dim]",
+        f"[bold cyan]👁️ SPECTER UI — Visual Auditor (Version 4.5 Enabled)[/bold cyan]\n"
+        "[dim]Using high-end vision brain for premium auditing.[/dim]",
         border_style="cyan"
     ))
 
     if not repo: repo = Prompt.ask("[bold blue]📦 GitHub Repo URL[/bold blue]")
-    if not task: task = Prompt.ask("[bold yellow]🎯 Your Task (e.g. 'Make the UI more premium')[/bold yellow]")
+    if not task: task = Prompt.ask("[bold yellow]🎯 Your Task[/bold yellow]")
     if not url: url = Prompt.ask("[bold magenta]🌐 Live URL to audit[/bold magenta] [dim](optional)[/dim]", default="")
 
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
@@ -202,30 +206,30 @@ def main(repo, task, url, reviewer):
         critique = perform_visual_audit(url, snapshot_path, state_file)
 
     # 3. Hand off to Claude Code CLI
-    console.print("\n[magenta]🧠 Launching Spectral Refactor...[/magenta]\n")
+    console.print("\n[magenta]🧠 Launching Spectral 4.5 Refactor...[/magenta]\n")
     update_state(state_file, status="refactoring")
     
     spectral_prompt = f"""You are Specter UI. 
 You are performing this task: {task}
 
-CRITICAL VISUAL FEEDBACK:
-{critique if critique else "No visual snapshot provided. Focus on standard engineering."}
+CRITICAL VISUAL FEEDBACK FROM 4.5 VISION BRAIN:
+{critique if critique else "No visual snapshot provided."}
 
-Improve the aesthetics and resolve any issues found. Test your changes. Branch name should start with 'spectral-fix/'."""
+Improve the aesthetics and resolve any issues found. Test your changes. Use model: {SWARM_MODEL} if applicable."""
 
     claude_bin = shutil.which("claude") or os.path.expanduser("~/.local/bin/claude")
     process = subprocess.Popen(
         [claude_bin, "--print", "--dangerously-skip-permissions", "--effort", "medium", 
-         "--model", "claude-3-5-haiku-20241022", "--output-format", "stream-json", spectral_prompt],
+         "--model", SWARM_MODEL, "--output-format", "stream-json", spectral_prompt],
         cwd=str(repo_dir), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
     )
     parse_claude_stream(process, state_file)
     process.wait()
 
-    # 4. Commit & PR
+    # 4. Commit & PR on master
     status_str = git(["status", "--porcelain"], repo_dir)
     if not status_str:
-        console.print("[yellow]⚠️ No visual changes applied.[/yellow]"); update_state(state_file, status="done"); sys.exit(0)
+        console.print("[yellow]⚠️ No changes applied.[/yellow]"); update_state(state_file, status="done"); sys.exit(0)
 
     branch_name = f"spectral-fix/{run_id}"
     git(["checkout", "-b", branch_name], repo_dir)
@@ -237,10 +241,10 @@ Improve the aesthetics and resolve any issues found. Test your changes. Branch n
     github_repo = gh.get_repo(repo_name)
     pr = github_repo.create_pull(
         title=f"Spectral Fix: {task[:60]}",
-        body=f"Automated Visual Refactor by **Specter UI**.\n\n### 👁️ Visual Audit Results:\n{critique}",
-        head=branch_name, base=github_repo.default_branch
+        body=f"Automated Visual Refactor by **Specter UI v4.5**.\n\n### 👁️ Visual Audit Results (4.5):\n{critique}",
+        head=branch_name, base="master" # Pushing to master as requested
     )
-    console.print(f"\n[bold green]✅ Success! Spectral PR created:[/bold green] {pr.html_url}")
+    console.print(f"\n[bold green]✅ Success! Spectral PR created on master:[/bold green] {pr.html_url}")
     update_state(state_file, status="done", pr_url=pr.html_url)
 
 if __name__ == "__main__":
