@@ -1,6 +1,6 @@
 # 👁️ Specter UI
 
-![Specter UI Hero](assets/hero.png)
+<img src="assets/hero.png" width="800" alt="Specter UI Hero">
 
 > **The autonomous visual auditor.**  
 > *It doesn't just read code; it "sees" your web app and fixes the aesthetics — automatically.*
