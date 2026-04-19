@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Specter UI — Visual Swarm Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<style>
+  :root { 
+    --bg: #05070a; 
+    --card: rgba(13, 17, 28, 0.9); 
+    --accent: #5eacff; 
+    --magenta: #ff2e97; 
+    --text: #f0f2f5; 
+    --border: rgba(255, 255, 255, 0.1); 
+    --glass: rgba(255, 255, 255, 0.03);
+  }
+  * { box-sizing: border-box; }
+  body { 
+    background: var(--bg); 
+    background-image: radial-gradient(circle at 50% 0%, #1a1f35 0%, var(--bg) 70%);
+    color: var(--text); 
+    font-family: 'Outfit', sans-serif; 
+    padding: 2rem; 
+    margin: 0; 
+    min-height: 100vh;
+  }
+  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }
+  h1 { font-size: 1.8rem; margin: 0; background: linear-gradient(135deg, var(--accent), var(--magenta)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .status-badge { padding: 4px 12px; border-radius: 20px; background: var(--glass); font-size: 0.75rem; border: 1px solid var(--border); letter-spacing: 1px; color: var(--accent); }
+  
+  .layout { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 2rem; align-items: start; }
+  
+  /* Log Panel */
+  .panel { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; backdrop-filter: blur(10px); }
+  .terminal { height: 600px; overflow-y: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; line-height: 1.6; }
+  .log-entry { margin-bottom: 0.6rem; padding-bottom: 0.6rem; border-bottom: 1px solid rgba(255,255,255,0.03); }
+  .time { color: #5a647a; font-size: 0.7rem; margin-right: 12px; }
+  .agent { color: var(--accent); font-weight: 600; margin-right: 12px; }
+  .msg { color: #d0d7e6; }
+  .msg.tool { color: var(--magenta); font-weight: bold; }
+
+  /* Visual Preview Panel */
+  .preview-panel { position: sticky; top: 2rem; }
+  .snapshot-container { margin-bottom: 1.5rem; overflow: hidden; border-radius: 8px; border: 1px solid var(--border); background: #000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+  .snapshot-container img { width: 100%; display: block; filter: brightness(0.9); transition: transform 0.4s ease; }
+  .snapshot-container:hover img { transform: scale(1.02); filter: brightness(1); }
+  
+  .critique-card { background: var(--glass); border-radius: 8px; padding: 1.2rem; border-left: 4px solid var(--magenta); }
+  .critique-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--magenta); text-transform: uppercase; }
+  .critique-text { font-size: 0.85rem; line-height: 1.5; color: #b0b8c9; }
+
+  .pr-card { margin-top: 1.5rem; padding: 1.2rem; border-radius: 12px; background: linear-gradient(135deg, rgba(94, 172, 255, 0.1), rgba(255, 46, 151, 0.1)); border: 1px solid var(--border); text-align: center; display: none; }
+  .pr-card a { color: var(--accent); text-decoration: none; font-weight: bold; font-size: 1rem; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>👁️ SPECTER UI</h1>
+  <div class="status-badge" id="status">INITIALIZING...</div>
+</div>
+
+<div class="layout">
+  <div class="panel">
+    <div class="terminal" id="term"></div>
+  </div>
+
+  <div class="preview-panel">
+    <div class="snapshot-container" id="snap-box" style="display:none;">
+      <img id="snapshot" src="" alt="Specter Vision Snapshot">
+    </div>
+    
+    <div class="critique-card" id="critique-box" style="display:none;">
+      <div class="critique-title">Visual Audit Critique</div>
+      <div class="critique-text" id="critigue-content">Scanning UI for non-premium patterns...</div>
+    </div>
+
+    <div class="pr-card" id="pr-card">
+      🚀 <a href="#" id="pr-link" target="_blank">View Generated PR</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  let lastLen = 0;
+  const term = document.getElementById('term');
+  const evtSource = new EventSource('/events');
+  
+  // Initial fetch for state
+  fetch('/state').then(r => r.json()).then(updateUI);
+
+  evtSource.onmessage = (e) => {
+    try {
+      const state = JSON.parse(e.data);
+      updateUI(state);
+    } catch (err) {}
+  };
+
+  function updateUI(state) {
+    if (state.status) document.getElementById('status').textContent = state.status.toUpperCase();
+    
+    // Logs
+    const logs = state.log || [];
+    if (logs.length > lastLen) {
+      for (let i = lastLen; i < logs.length; i++) {
+        const entry = logs[i];
+        const div = document.createElement('div');
+        div.className = 'log-entry';
+        const isTool = entry.msg.includes('Executed tool:');
+        div.innerHTML = `<span class="time">${entry.time}</span><span class="agent">${entry.agent}</span><span class="msg ${isTool ? 'tool' : ''}">${entry.msg}</span>`;
+        term.appendChild(div);
+      }
+      term.scrollTop = term.scrollHeight;
+      lastLen = logs.length;
+    }
+
+    // Visual Snapshot
+    if (state.snapshot_url) {
+      document.getElementById('snap-box').style.display = 'block';
+      document.getElementById('snapshot').src = state.snapshot_url + "?t=" + Date.now();
+    }
+
+    // Critique
+    if (state.critique) {
+      document.getElementById('critique-box').style.display = 'block';
+      document.getElementById('critigue-content').textContent = state.critique;
+    }
+    
+    // PR URL
+    if (state.pr_url) {
+      document.getElementById('pr-card').style.display = 'block';
+      document.getElementById('pr-link').href = state.pr_url;
+    }
+  }
+</script>
+</body>
+</html>
